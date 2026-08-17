@@ -1,0 +1,25 @@
+# 当前子服的唯一标识。相同逻辑子服的多个实例应使用相同值。
+server-id: "survival"
+
+# AuthMe LoginEvent 触发后的显示延迟，30 tick = 1.5 秒。
+display-delay-ticks: 30
+
+storage:
+  mariadb:
+    jdbc-url: "jdbc:mariadb://127.0.0.1:3306/minecraft"
+    username: "minecraft"
+    password: "change-me"
+    table-prefix: "kudn_"
+    maximum-pool-size: 6
+    connection-timeout-ms: 5000
+    socket-timeout-ms: 15000
+  redis:
+    enabled: true
+    uri: "redis://127.0.0.1:6379/0"
+    key-prefix: "kudn:"
+    cache-ttl-seconds: 300
+
+clients:
+  # Minecraft 1.21.6 是首个支持原生 Dialog 的客户端协议。
+  native-dialog-min-protocol: 771
+  fallback-book-enabled: true

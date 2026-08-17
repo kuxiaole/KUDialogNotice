@@ -1,0 +1,24 @@
+name: KUDialogNotice
+version: '${project.version}'
+main: dev.kuxiaole.kudialognotice.KUDialogNoticePlugin
+description: AuthMe 登录后的跨服服规与更新日志 Dialog
+api-version: '26.2'
+folia-supported: true
+authors: [kuxiaole]
+depend: [AuthMe]
+softdepend: [ViaVersion]
+commands:
+  kudialognotice:
+    description: KUDialogNotice 管理命令
+    usage: /kudialognotice <reload|preview|status>
+    aliases: [kudn]
+permissions:
+  kudialognotice.admin:
+    description: 使用全部 KUDialogNotice 管理命令
+    default: op
+  kudialognotice.bypass.rules:
+    description: 跳过新人服规
+    default: false
+  kudialognotice.bypass.changelog:
+    description: 跳过更新日志
+    default: false

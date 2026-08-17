@@ -1,0 +1,36 @@
+enabled: true
+title: "<gold><bold>服务器规则与条例</bold></gold>"
+
+# 每一项在原生 Dialog 中是一个正文段落，在旧客户端书本中是一页。
+body:
+  - |-
+    <white>欢迎来到服务器。</white>
+
+    <yellow>1.</yellow> 请尊重其他玩家，禁止辱骂、骚扰和恶意引战。
+    <yellow>2.</yellow> 禁止使用作弊客户端、漏洞或任何不公平工具。
+    <yellow>3.</yellow> 禁止恶意破坏服务器秩序或影响其他玩家体验。
+  - |-
+    <yellow>4.</yellow> 交易前请确认内容，禁止诈骗。
+    <yellow>5.</yellow> 发现漏洞请及时反馈，不得传播或利用。
+
+    <click:open_url:'https://example.com/rules'><aqua><underlined>点击查看完整服规</underlined></aqua></click>
+
+read-checkbox: "<green>我已完整阅读并理解以上规则</green>"
+locked-message: "<red>请先阅读到正文末尾并勾选确认框。</red>"
+
+buttons:
+  accept:
+    text: "<green>同意</green>"
+    tooltip: "<gray>同意规则并继续</gray>"
+  reject:
+    text: "<red>拒绝</red>"
+    tooltip: "<gray>拒绝规则</gray>"
+
+reject-confirmation:
+  title: "<red><bold>确认拒绝？</bold></red>"
+  body: |-
+    <white>拒绝服规将使你退出服务器。</white>
+    <gray>下次登录时仍需要重新阅读并选择。</gray>
+  return-button: "<green>返回阅读</green>"
+  reject-button: "<red>确认拒绝并退出</red>"
+

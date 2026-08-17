@@ -1,0 +1,20 @@
+enabled: true
+
+# 每个子服单独维护 revision。每次修改更新日志后必须递增，不能回退。
+revision: 1
+version-label: "2026.08.16"
+title: "<aqua><bold>服务器更新日志</bold></aqua>"
+body:
+  - |-
+    <white>本次更新内容：</white>
+
+    <green>+</green> 优化服务器性能与稳定性
+    <green>+</green> 修复已知问题
+    <green>+</green> 调整部分玩法内容
+  - |-
+    <gray>更多信息：</gray>
+    <click:open_url:'https://example.com/changelog'><aqua><underlined>查看完整更新日志</underlined></aqua></click>
+
+acknowledge-button: "<green>已知晓</green>"
+acknowledge-tooltip: "<gray>确认已阅读当前版本</gray>"
+

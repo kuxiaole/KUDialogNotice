@@ -23,4 +23,13 @@ class ConfigurationLoaderTest {
         assertThrows(ConfigurationException.class, () -> ConfigurationLoader.validateMiniMessage(
                 yaml, "title", "<green><bold>missing closing tags"));
     }
+
+    @Test
+    void redisKeyPrefixRejectsWhitespaceAndWireDelimiters() {
+        assertDoesNotThrow(() -> ConfigurationLoader.validateRedisKeyPrefix("kudn:"));
+        assertThrows(ConfigurationException.class,
+                () -> ConfigurationLoader.validateRedisKeyPrefix("kudn prefix"));
+        assertThrows(ConfigurationException.class,
+                () -> ConfigurationLoader.validateRedisKeyPrefix("kudn|events"));
+    }
 }

@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 
 public final class DistributedStateStore implements AutoCloseable {
@@ -80,6 +81,106 @@ public final class DistributedStateStore implements AutoCloseable {
             repository.markChangelogSeen(player, streamId, revision);
             redisRun(cache -> cache.setSeenRevision(player.uniqueId(), streamId, revision));
         }));
+    }
+
+    /**
+     * Loads the current changelog document from MariaDB.  The returned future
+     * is completed on the scheduler's asynchronous executor; callers must not
+     * use this method from a region thread to perform blocking work.
+     */
+    public CompletableFuture<Optional<StoredChangelogDocument>> loadChangelogDocument(String noticeId) {
+        return ensureReady().thenCompose(ignored -> scheduler.supplyAsync(() -> {
+            try {
+                return repository.loadChangelogDocument(noticeId);
+            } catch (SQLException exception) {
+                throw failure("Cannot load changelog document", exception);
+            }
+        }));
+    }
+
+    /** Convenience overload for the single global changelog stream. */
+    public CompletableFuture<Optional<StoredChangelogDocument>> loadChangelogDocument() {
+        return loadChangelogDocument("global");
+    }
+
+    /**
+     * Atomically compares and, when newer, stores a changelog document in
+     * MariaDB.  JDBC work is deliberately kept behind the async scheduler.
+     */
+    public CompletableFuture<ChangelogReconcileResult> reconcileChangelogDocument(
+            String noticeId,
+            long revision,
+            String canonicalPayload,
+            String sha256,
+            String sourceServerId
+    ) {
+        return ensureReady().thenCompose(ignored -> scheduler.supplyAsync(() -> {
+            try {
+                return repository.reconcileChangelogDocument(
+                        noticeId, revision, canonicalPayload, sha256, sourceServerId);
+            } catch (SQLException exception) {
+                throw failure("Cannot reconcile changelog document", exception);
+            }
+        }));
+    }
+
+    /** Return whether this store was configured with a Redis client. */
+    public boolean hasRedis() {
+        return redis != null && !closed.get();
+    }
+
+    /** Return the namespaced Redis channel used for changelog invalidations. */
+    public String changelogChannel() {
+        return redis == null || closed.get() ? null : redis.changelogChannel();
+    }
+
+    /**
+     * Starts a Redis changelog subscription without blocking the caller. The
+     * callback is invoked by a dedicated subscriber thread and must hand off
+     * any Bukkit work to the appropriate scheduler context.
+     */
+    public void startChangelogSubscription(String channel, Consumer<String> messageConsumer) {
+        if (redis != null) {
+            redis.startChangelogSubscription(channel, messageConsumer);
+        }
+    }
+
+    /** Start a changelog subscription tied to an explicit lifecycle owner. */
+    public ChangelogSubscription startChangelogSubscriptionOwned(
+            String channel,
+            Consumer<String> messageConsumer
+    ) {
+        if (redis == null) {
+            return null;
+        }
+        return redis.startChangelogSubscriptionOwned(channel, messageConsumer);
+    }
+
+    /** Stop the current Redis changelog subscription, if configured. */
+    public void stopChangelogSubscription() {
+        if (redis != null) {
+            redis.stopChangelogSubscription();
+        }
+    }
+
+    /** Stop only the subscription owned by the supplied lifecycle token. */
+    public void stopChangelogSubscription(ChangelogSubscription owner) {
+        if (redis != null && owner != null) {
+            redis.stopChangelogSubscription(owner);
+        }
+    }
+
+    /**
+     * Publishes a changelog invalidation event asynchronously. Redis is a
+     * secondary notification path; callers should still reconcile from
+     * MariaDB when this future fails.
+     */
+    public CompletableFuture<Void> publishChangelogEvent(String channel, String message) {
+        if (redis == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return ensureReady().thenCompose(ignored -> scheduler.runAsync(
+                () -> redis.publishChangelogEvent(channel, message)));
     }
 
     public CompletableFuture<Optional<PlayerIdentity>> resolvePlayer(String input) {
@@ -202,6 +303,7 @@ public final class DistributedStateStore implements AutoCloseable {
         RuntimeException failure = null;
         try {
             if (redis != null) {
+                redis.stopChangelogSubscription();
                 redis.close();
             }
         } catch (RuntimeException exception) {

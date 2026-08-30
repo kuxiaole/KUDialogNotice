@@ -9,6 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -17,6 +18,8 @@ import java.util.regex.Pattern;
 public final class ConfigurationLoader {
     private static final Pattern SERVER_ID = Pattern.compile("[a-z0-9][a-z0-9._-]{0,63}");
     private static final Pattern TABLE_PREFIX = Pattern.compile("[A-Za-z0-9_]{1,32}");
+    /** Redis key/channel prefixes must not introduce whitespace or wire delimiters. */
+    private static final Pattern REDIS_KEY_PREFIX = Pattern.compile("[A-Za-z0-9._:-]{1,64}");
     private static final List<String> RESOURCE_FILES = List.of(
             "config.yml", "rules.yml", "changelog.yml", "messages.yml"
     );
@@ -51,14 +54,70 @@ public final class ConfigurationLoader {
         try {
             MainConfig main = loadMain(loadYaml("config.yml"));
             RulesConfig rules = loadRules(loadYaml("rules.yml"));
-            ChangelogConfig changelog = loadChangelog(loadYaml("changelog.yml"));
+            ChangelogDocument changelogDocument = loadChangelogDocument(readFile("changelog.yml"));
             MessagesConfig messages = loadMessages(loadYaml("messages.yml"));
-            return new PluginConfiguration(main, rules, changelog, messages);
+            return new PluginConfiguration(
+                    main, rules, changelogDocument.configuration(), messages, changelogDocument);
         } catch (ConfigurationException exception) {
             throw exception;
         } catch (RuntimeException exception) {
             throw new ConfigurationException("Invalid configuration: " + exception.getMessage(), exception);
         }
+    }
+
+    /**
+     * Parse and validate a complete changelog payload received from storage.
+     * The returned document contains canonical text and its calculated digest.
+     */
+    public ChangelogDocument loadChangelogDocument(byte[] payload) throws ConfigurationException {
+        return parseChangelogDocument(payload, "changelog.yml");
+    }
+
+    /** String overload for callers that already decoded the UTF-8 payload. */
+    public ChangelogDocument loadChangelogDocument(String payload) throws ConfigurationException {
+        return parseChangelogDocument(payload, "changelog.yml");
+    }
+
+    /** Alias that makes the intent explicit for remote replication callers. */
+    public ChangelogDocument parseChangelogDocument(byte[] payload) throws ConfigurationException {
+        return loadChangelogDocument(payload);
+    }
+
+    /** String alias corresponding to {@link #parseChangelogDocument(byte[])}. */
+    public ChangelogDocument parseChangelogDocument(String payload) throws ConfigurationException {
+        return loadChangelogDocument(payload);
+    }
+
+    private ChangelogDocument parseChangelogDocument(byte[] payload, String sourceName)
+            throws ConfigurationException {
+        final String canonical;
+        try {
+            canonical = ChangelogCodec.canonicalize(payload);
+        } catch (IllegalArgumentException exception) {
+            throw new ConfigurationException(
+                    sourceName + ": invalid changelog payload: " + exception.getMessage(), exception);
+        }
+        return parseChangelogDocument(canonical, sourceName);
+    }
+
+    private ChangelogDocument parseChangelogDocument(String payload, String sourceName)
+            throws ConfigurationException {
+        final String canonical;
+        try {
+            canonical = ChangelogCodec.canonicalize(payload);
+        } catch (IllegalArgumentException exception) {
+            throw new ConfigurationException(
+                    sourceName + ": invalid changelog payload: " + exception.getMessage(), exception);
+        }
+
+        YamlConfiguration yaml = new YamlConfiguration();
+        try {
+            yaml.loadFromString(canonical);
+        } catch (Exception exception) {
+            throw new ConfigurationException(sourceName + ": cannot parse YAML: " + exception.getMessage(), exception);
+        }
+        ChangelogConfig changelog = loadChangelog(yaml);
+        return new ChangelogDocument(changelog, canonical);
     }
 
     private YamlConfiguration loadYaml(String name) throws ConfigurationException {
@@ -69,6 +128,22 @@ public final class ConfigurationLoader {
             return yaml;
         } catch (Exception exception) {
             throw new ConfigurationException("Cannot load " + name + ": " + exception.getMessage(), exception);
+        }
+    }
+
+    private byte[] readFile(String name) throws ConfigurationException {
+        File file = new File(plugin.getDataFolder(), name);
+        try {
+            long size = Files.size(file.toPath());
+            if ("changelog.yml".equals(name) && size > ChangelogCodec.MAX_PAYLOAD_BYTES) {
+                throw new ConfigurationException(
+                        name + " exceeds the maximum size of " + ChangelogCodec.MAX_PAYLOAD_BYTES + " bytes");
+            }
+            return Files.readAllBytes(file.toPath());
+        } catch (ConfigurationException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ConfigurationException("Cannot read " + name + ": " + exception.getMessage(), exception);
         }
     }
 
@@ -104,6 +179,7 @@ public final class ConfigurationLoader {
                 requiredString(yaml, "storage.redis.key-prefix"),
                 boundedInt(yaml, "storage.redis.cache-ttl-seconds", 300, 5, 86_400)
         );
+        validateRedisKeyPrefix(redis.keyPrefix());
         if (redisEnabled) {
             validateRedisUri(redis.uri());
         }
@@ -143,6 +219,7 @@ public final class ConfigurationLoader {
     private ChangelogConfig loadChangelog(YamlConfiguration yaml) throws ConfigurationException {
         long revision = yaml.getLong("revision", 0L);
         boolean enabled = yaml.getBoolean("enabled", true);
+        require(revision >= 0L, "changelog.yml: revision must not be negative");
         if (enabled) {
             require(revision >= 1L, "changelog.yml: revision must be at least 1 when enabled");
         }
@@ -241,6 +318,11 @@ public final class ConfigurationLoader {
             throw new ConfigurationException("config.yml: invalid storage.redis.uri: " + exception.getMessage(),
                     exception);
         }
+    }
+
+    static void validateRedisKeyPrefix(String value) throws ConfigurationException {
+        require(value != null && REDIS_KEY_PREFIX.matcher(value).matches(),
+                "config.yml: storage.redis.key-prefix may contain only letters, digits, '.', '_', ':' and '-'");
     }
 
     private static void require(boolean condition, String message) throws ConfigurationException {

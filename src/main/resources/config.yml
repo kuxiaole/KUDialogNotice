@@ -1,4 +1,6 @@
-# 当前子服的唯一标识。相同逻辑子服的多个实例应使用相同值。
+# 当前子服的唯一标识。它只用于玩家已读记录的 server-id 流分流；
+# 维护公告正文会在使用同一 MariaDB 表前缀和 Redis 命名空间的所有子服间全局同步。
+# MariaDB 是公告正文的权威来源，Redis 只负责发送变更通知。
 server-id: "survival"
 
 # AuthMe LoginEvent 触发后的显示延迟，30 tick = 1.5 秒。

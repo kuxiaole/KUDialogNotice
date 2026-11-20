@@ -1,6 +1,7 @@
 package dev.kuxiaole.kudialognotice.flow;
 
 import dev.kuxiaole.kudialognotice.KUDialogNoticePlugin;
+import dev.kuxiaole.kudialognotice.compat.FakePlayerPlusSupport;
 import dev.kuxiaole.kudialognotice.config.PluginConfiguration;
 import dev.kuxiaole.kudialognotice.storage.PlayerIdentity;
 import dev.kuxiaole.kudialognotice.storage.PlayerNoticeState;
@@ -19,16 +20,22 @@ import java.util.logging.Level;
 public final class NoticeFlowService {
     private final KUDialogNoticePlugin plugin;
     private final NoticePresenter presenter;
+    private final FakePlayerPlusSupport fakePlayers;
     private final ConcurrentHashMap<UUID, NoticeSession> sessions = new ConcurrentHashMap<>();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
 
     public NoticeFlowService(KUDialogNoticePlugin plugin, NoticePresenter presenter) {
         this.plugin = plugin;
         this.presenter = presenter;
+        this.fakePlayers = new FakePlayerPlusSupport(plugin);
     }
 
     public void onAuthenticated(Player player) {
         if (shuttingDown.get()) {
+            return;
+        }
+        if (fakePlayers.isFakePlayer(player)) {
+            cleanup(player.getUniqueId());
             return;
         }
         PluginConfiguration configuration = plugin.configuration();
@@ -72,6 +79,9 @@ public final class NoticeFlowService {
     }
 
     public boolean startPreview(Player player, String type) {
+        if (shuttingDown.get() || fakePlayers.isFakePlayer(player)) {
+            return false;
+        }
         PluginConfiguration configuration = plugin.configuration();
         NoticeSession session = new NoticeSession(
                 new PlayerIdentity(player.getUniqueId(), player.getName()),

@@ -6,7 +6,7 @@ api-version: '26.2'
 folia-supported: true
 authors: [kuxiaole]
 depend: [AuthMe]
-softdepend: [ViaVersion]
+softdepend: [ViaVersion, FakePlayerPlus]
 commands:
   kudialognotice:
     description: KUDialogNotice 管理命令

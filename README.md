@@ -2,6 +2,12 @@
 
 KUDialogNotice 是面向 Lophine/Folia 26.2 的登录公告插件。玩家通过 AuthMe 验证后，插件等待 30 tick（默认 1.5 秒），再按顺序处理服规与当前子服的更新日志。
 
+## FakePlayerPlus 兼容（1.1.1）
+
+安装 FakePlayerPlus 时，只对其在线注册表中绑定到当前 Player 实例的假人跳过服规和更新日志流程。假人没有可操作协议的真实客户端，因此不创建等待确认的会话，也不写入“已同意”记录；手部交换及其他交互继续受各自插件的权限和保护检查约束。名称、UUID 历史记录、OP 和权限通配符不作为假人识别依据。未安装、已禁用或无法读取 FakePlayerPlus API 时，保留正常协议检查。
+
+更新时正常停服，以 `KUDialogNotice-1.1.1.jar` 替换旧版 KUDialogNotice JAR，再启动。无需更换 FakePlayerPlus、删除数据或给真实玩家添加跳过协议权限；原有配置、协议接受记录及更新日志已读记录保留。
+
 ## 工作流程
 
 - 没有服规接受记录的玩家都会看到服规，包括插件首次部署前已经进入过服务器的老玩家。
@@ -37,7 +43,7 @@ chmod +x mvnw  # 文件复制过程未保留执行位时只需执行一次
 JAVA_HOME=/path/to/jdk-25 ./mvnw clean package
 ```
 
-构建产物位于 `target/KUDialogNotice-1.1.0.jar`。
+构建产物位于 `target/KUDialogNotice-1.1.1.jar`。
 
 1. 将构建产物放入每个 Lophine 子服的 `plugins` 目录，并确保 AuthMe 已安装。
 2. 首次启动会生成 `plugins/KUDialogNotice/config.yml`、`rules.yml`、`changelog.yml` 和 `messages.yml`。

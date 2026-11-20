@@ -6,7 +6,7 @@
 
     <groupId>dev.kuxiaole</groupId>
     <artifactId>kudialognotice</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <name>KUDialogNotice</name>
     <description>Folia-safe rules and changelog dialogs shown after AuthMe login</description>
 
@@ -90,6 +90,12 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.23.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
